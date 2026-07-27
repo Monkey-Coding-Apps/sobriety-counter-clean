@@ -1,5 +1,9 @@
 .gradle
 /build
 /app/build
+.build-outputs/
+debug.keystore*
+*.apk
+node_modules
 *.iml
 .idea
