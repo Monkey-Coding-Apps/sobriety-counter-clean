@@ -1,4 +1,4 @@
-package org.peercoach.sobrietycounter
+package com.david.sobrietycounter
 
 import android.content.Intent
 import android.net.Uri
