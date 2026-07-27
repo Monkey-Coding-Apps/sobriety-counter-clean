@@ -7,11 +7,23 @@
       "type": "image/svg+xml",
       "sizes": "512x512",
       "purpose": "any maskable"
+    },
+    {
+      "src": "www/icon.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "www/icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
     }
   ],
   "start_url": "./index.html",
-  "background_color": "#0F172A",
-  "theme_color": "#0F172A",
+  "background_color": "#FFFFFF",
+  "theme_color": "#1B2C52",
   "display": "standalone",
   "orientation": "portrait"
 }

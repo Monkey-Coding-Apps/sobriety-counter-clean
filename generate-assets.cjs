@@ -1,4 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+const fs = require('fs');
+const path = require('path');
+const sharp = require('sharp');
+
+// Create the exact SVG logo based on user's image
+// 512x512 Canvas
+const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
   <defs>
     <style>
       .bg { fill: #FFFFFF; }
@@ -50,4 +56,52 @@
   <!-- Foreground SC Monogram -->
   <text x="115" y="375" font-family="'Times New Roman', Times, Georgia, serif" font-size="310" font-weight="bold" fill="#1B2C52" letter-spacing="-10">S</text>
   <text x="215" y="375" font-family="'Times New Roman', Times, Georgia, serif" font-size="310" font-weight="bold" fill="#1B2C52" letter-spacing="-10">C</text>
-</svg>
+</svg>`;
+
+async function generate() {
+  const wwwDir = path.join(__dirname, 'www');
+  const resDir = path.join(__dirname, 'app', 'src', 'main', 'res');
+
+  fs.writeFileSync(path.join(wwwDir, 'icon.svg'), svgContent);
+
+  await sharp(Buffer.from(svgContent))
+    .resize(512, 512)
+    .toFile(path.join(wwwDir, 'icon.png'));
+
+  await sharp(Buffer.from(svgContent))
+    .resize(192, 192)
+    .toFile(path.join(wwwDir, 'icon-192.png'));
+
+  await sharp(Buffer.from(svgContent))
+    .resize(32, 32)
+    .toFile(path.join(wwwDir, 'favicon.png'));
+
+  const mipmapSizes = [
+    { dir: 'mipmap-mdpi', size: 48 },
+    { dir: 'mipmap-hdpi', size: 72 },
+    { dir: 'mipmap-xhdpi', size: 96 },
+    { dir: 'mipmap-xxhdpi', size: 144 },
+    { dir: 'mipmap-xxxhdpi', size: 192 },
+  ];
+
+  for (const item of mipmapSizes) {
+    const dirPath = path.join(resDir, item.dir);
+    if (!fs.existsSync(dirPath)) {
+      fs.mkdirSync(dirPath, { recursive: true });
+    }
+    await sharp(Buffer.from(svgContent))
+      .resize(item.size, item.size)
+      .toFile(path.join(dirPath, 'ic_launcher.png'));
+
+    await sharp(Buffer.from(svgContent))
+      .resize(item.size, item.size)
+      .toFile(path.join(dirPath, 'ic_launcher_round.png'));
+  }
+
+  console.log('Successfully generated all icon assets!');
+}
+
+generate().catch(err => {
+  console.error(err);
+  process.exit(1);
+});
