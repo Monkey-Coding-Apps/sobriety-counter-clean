@@ -303,6 +303,84 @@
         
         .hidden { display: none !important; }
 
+        /* MODAL STYLES FOR RESET CONFIRMATION */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+            z-index: 200;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+            box-sizing: border-box;
+        }
+        .modal-card {
+            background: #1e1e1e;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 14px;
+            padding: 20px;
+            width: 290px;
+            max-width: 90vw;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+            text-align: center;
+        }
+        body.theme-light .modal-card {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+        .modal-card h3 {
+            margin-top: 0;
+            margin-bottom: 10px;
+            font-size: 1.1rem;
+            color: #ffffff;
+        }
+        body.theme-light .modal-card h3 { color: #1a1a1a; }
+        .modal-card p {
+            font-size: 0.85rem;
+            color: #aaaaaa;
+            margin-bottom: 20px;
+            line-height: 1.4;
+        }
+        body.theme-light .modal-card p { color: #64748b; }
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+        }
+        .btn-modal-cancel {
+            background: rgba(255, 255, 255, 0.1);
+            color: #ffffff;
+            border: none;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            width: 50%;
+        }
+        body.theme-light .btn-modal-cancel {
+            background: #f1f5f9;
+            color: #334155;
+        }
+        .btn-modal-confirm {
+            background: #ff2e63;
+            color: #ffffff;
+            border: none;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            width: 50%;
+        }
+        body.theme-light .btn-modal-confirm {
+            background: #ef4444;
+            color: #ffffff;
+        }
+
         /* PEERCOACH CREDIT & DONATE LINK */
         .donation-box {
             border-top: 1px solid #2a2a2a;
@@ -379,8 +457,8 @@
                 <option value="image6">Beach Palm Tree</option>
             </select>
             <div style="margin-top: 16px; background: rgba(128,128,128,0.08); padding: 12px; border-radius: 8px; border: 1px dashed rgba(128,128,128,0.3);">
-                <label style="font-size: 0.7rem; margin-bottom: 6px;">Use Custom Local Photo</label>
-                <input type="file" id="customBgInput" accept="image/*" style="font-size: 0.8rem; color: #888; width: 100%;">
+                <label for="customBgInput" style="font-size: 0.7rem; margin-bottom: 6px; display: block; cursor: pointer;">Use Custom Local Photo</label>
+                <input type="file" id="customBgInput" accept="image/*" style="font-size: 0.8rem; color: #888; width: 100%; cursor: pointer;">
             </div>
         </div>
 
@@ -394,6 +472,18 @@
         <a href="https://peercoach.org/app-donate.html" class="btn-donate" target="_blank">
             Support Our Mission <span>❤️</span>
         </a>
+    </div>
+</div>
+
+<!-- RESET CONFIRMATION MODAL -->
+<div class="modal-overlay hidden" id="resetModal">
+    <div class="modal-card">
+        <h3>Reset Start Date?</h3>
+        <p>Are you sure you want to change or reset your sobriety date and milestones?</p>
+        <div class="modal-actions">
+            <button class="btn-modal-cancel" id="cancelResetBtn">Cancel</button>
+            <button class="btn-modal-confirm" id="confirmResetBtn">Reset</button>
+        </div>
     </div>
 </div>
 
@@ -548,16 +638,49 @@
         }
     }
 
+    const resetModal = document.getElementById('resetModal');
+    const cancelResetBtn = document.getElementById('cancelResetBtn');
+    const confirmResetBtn = document.getElementById('confirmResetBtn');
+
     customBgInput.addEventListener('change', (e) => {
-        const file = e.target.files[0];
+        const file = e.target.files && e.target.files[0];
         if (file) {
             const reader = new FileReader();
             reader.onload = function(event) {
-                const base64Url = event.target.result;
-                document.body.classList.remove('theme-light');
-                document.body.classList.add('has-bg-image');
-                document.body.style.backgroundImage = `url("${base64Url}")`;
-                localStorage.setItem('sobrietyBg', base64Url);
+                const img = new Image();
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+                    const maxDim = 1280;
+
+                    if (width > maxDim || height > maxDim) {
+                        if (width > height) {
+                            height = Math.round((height * maxDim) / width);
+                            width = maxDim;
+                        } else {
+                            width = Math.round((width * maxDim) / height);
+                            height = maxDim;
+                        }
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    const resizedBase64 = canvas.toDataURL('image/jpeg', 0.85);
+                    
+                    document.body.classList.remove('theme-light');
+                    document.body.classList.add('has-bg-image');
+                    document.body.style.backgroundImage = `url("${resizedBase64}")`;
+                    try {
+                        localStorage.setItem('sobrietyBg', resizedBase64);
+                    } catch (err) {
+                        console.error('Failed to save background image to localStorage:', err);
+                    }
+                };
+                img.src = event.target.result;
             };
             reader.readAsDataURL(file);
         }
@@ -637,10 +760,25 @@
     });
 
     resetBtn.addEventListener('click', () => {
-        if (confirm("Are you entirely sure you want to change or reset your milestones?")) {
-            localStorage.removeItem('sobrietyDate');
-            savedDate = null;
-            init();
+        resetModal.classList.remove('hidden');
+    });
+
+    cancelResetBtn.addEventListener('click', () => {
+        resetModal.classList.add('hidden');
+    });
+
+    confirmResetBtn.addEventListener('click', () => {
+        localStorage.removeItem('sobrietyDate');
+        savedDate = null;
+        resetModal.classList.add('hidden');
+        toggleDrawer(false);
+        init();
+    });
+
+    // Close reset modal if user clicks modal background overlay
+    resetModal.addEventListener('click', (e) => {
+        if (e.target === resetModal) {
+            resetModal.classList.add('hidden');
         }
     });
 
