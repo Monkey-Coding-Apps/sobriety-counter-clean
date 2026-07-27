@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sobriety Tracker</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <!-- Icon for Apple/iOS devices -->
+    <link rel="apple-touch-icon" href="https://peercoach.org/images/logo.png">
+    
+    <!-- Register the service worker script -->
+    <script>
+    if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js')
+    .then(() => console.log('Service Worker Registered'));
+    }
+    </script>
+    
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #121212;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            color: #e0e0e0;
+            transition: background 0.6s cubic-bezier(0.4, 0, 0.2, 1), color 0.3s ease;
+            position: relative;
+        }
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.4);
+            z-index: 1;
+            transition: background 0.3s ease;
+        }
+        
+        /* LIGHT MINIMALIST THEME OVERRIDES */
+        body.theme-light {
+            background-color: #f5f6f8 !important;
+            color: #333333;
+        }
+        body.theme-light::before {
+            background: rgba(255, 255, 255, 0); /* Eliminate dark overlay for crisp light look */
+        }
+
+        /* REMOVE DIMMING OVERLAY WHEN BACKGROUND IMAGE IS ACTIVE */
+        body.has-bg-image::before {
+            background: transparent !important;
+        }
+        
+        /* THE MAIN CONTAINER - NO OUTER GLASS FRAME */
+        .container {
+            position: relative;
+            z-index: 2;
+            text-align: center;
+            width: 340px;
+            max-width: 90vw;
+            box-sizing: border-box;
+            padding: 1rem 0;
+            transition: all 0.3s ease;
+        }
+        
+        h2 {
+            margin-top: 0;
+            font-size: 1.3rem;
+            color: #ffffff;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            opacity: 0.9;
+            transition: color 0.3s ease;
+        }
+        body.theme-light h2 {
+            color: #222222;
+        }
+        
+        .interactive-counter {
+            cursor: pointer;
+            user-select: none;
+            transition: transform 0.1s ease;
+        }
+        .interactive-counter:active {
+            transform: scale(0.98);
+        }
+        .counter-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin: 1.5rem 0;
+        }
+        
+        /* THE GLASS COUNTER BOXES */
+        .counter-box {
+            background: rgba(0, 0, 0, 0.25);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            padding: 14px;
+            border-radius: 14px;
+            border-bottom: 3px solid #8ec5fc;
+            transition: all 0.3s ease;
+        }
+        body.theme-light .counter-box {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-bottom: 3px solid #3b82f6;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+        }
+        
+        .counter-box.long-span {
+            grid-column: span 2;
+            border-bottom-color: #ff2e63;
+        }
+        body.theme-light .counter-box.long-span {
+            border-bottom-color: #ef4444;
+        }
+        
+        /* THE GLASS SINGLE DISPLAY BOX */
+        .single-display-box {
+            background: rgba(0, 0, 0, 0.25);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            padding: 24px 14px;
+            border-radius: 14px;
+            border-bottom: 3px solid #8ec5fc;
+            margin: 1.5rem 0;
+            transition: all 0.3s ease;
+        }
+        body.theme-light .single-display-box {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-bottom: 3px solid #3b82f6;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+        }
+        
+        .time-value {
+            font-size: 2.4rem;
+            font-weight: 800;
+            color: #ffffff;
+            line-height: 1.1;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+            transition: color 0.3s ease;
+        }
+        body.theme-light .time-value {
+            color: #1a1a1a;
+            text-shadow: none;
+        }
+        
+        .time-label {
+            font-size: 0.75rem;
+            color: #ddd;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            margin-top: 6px;
+            text-shadow: 0 1px 5px rgba(0, 0, 0, 0.5);
+            transition: color 0.3s ease;
+        }
+        body.theme-light .time-label {
+            color: #64748b;
+            text-shadow: none;
+        }
+        
+        .view-hint {
+            font-size: 0.8rem;
+            color: #8ec5fc;
+            margin-top: 10px;
+            opacity: 0.9;
+            letter-spacing: 0.5px;
+            transition: color 0.3s ease;
+            text-shadow: 0 1px 4px rgba(0,0,0,0.6);
+        }
+        body.theme-light .view-hint {
+            color: #2563eb;
+            text-shadow: none;
+        }
+        
+        .menu-icon {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            font-size: 1.4rem;
+            cursor: pointer;
+            color: white;
+            z-index: 10;
+            background: rgba(0, 0, 0, 0.4);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .menu-icon:hover {
+            background: rgba(0, 0, 0, 0.6);
+        }
+        body.theme-light .menu-icon {
+            color: #333333;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        body.theme-light .menu-icon:hover {
+            background: #f1f5f9;
+        }
+        
+        /* OVERLAY BACKDROP FOR DRAWER */
+        .drawer-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 95;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+        .drawer-overlay.open {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        /* DRAWER & SIDEBAR STYLES */
+        .drawer {
+            position: fixed;
+            top: 0; right: -300px;
+            width: 280px; height: 100%;
+            background: #161616;
+            box-shadow: -8px 0 25px rgba(0,0,0,0.6);
+            z-index: 100;
+            transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1), background 0.3s ease;
+            padding: 2rem 1.5rem;
+            box-sizing: border-box;
+            text-align: left;
+            border-left: 1px solid rgba(255, 255, 255, 0.05);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        .drawer.open { right: 0; }
+        .drawer-content { flex-grow: 1; display: flex; flex-direction: column; }
+        
+        .drawer h3 { margin-top: 0; color: white; border-bottom: 1px solid #2a2a2a; padding-bottom: 12px; font-weight: 600; transition: color 0.3s ease;}
+        body.theme-light .drawer h3 { color: #1a1a1a; border-bottom-color: #e2e8f0; }
+        body.theme-light .drawer { background: #ffffff; border-left: 1px solid #e2e8f0; box-shadow: -8px 0 25px rgba(0,0,0,0.05); }
+        
+        .drawer-close { font-size: 1.4rem; cursor: pointer; float: right; color: #666; transition: color 0.2s; }
+        .drawer-close:hover { color: #fff; }
+        body.theme-light .drawer-close:hover { color: #000; }
+        
+        .input-group { margin-bottom: 1.5rem; }
+        .input-group label { display: block; font-size: 0.75rem; color: #888; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px;}
+        
+        input[type="datetime-local"], select {
+            width: 100%; background: #222; color: white; border: 1px solid #333;
+            padding: 11px; border-radius: 8px; font-size: 0.9rem; box-sizing: border-box; outline: none;
+            transition: all 0.2s;
+        }
+        input[type="datetime-local"]:focus, select:focus {
+            border-color: #8ec5fc;
+        }
+        body.theme-light input[type="datetime-local"], body.theme-light select {
+            background: #f8fafc; color: #333333; border: 1px solid #cbd5e1;
+        }
+        body.theme-light input[type="datetime-local"]:focus, body.theme-light select:focus {
+            border-color: #3b82f6;
+        }
+        
+        button {
+            color: white; border: none; padding: 12px; font-size: 1rem; font-weight: bold;
+            border-radius: 8px; cursor: pointer; width: 100%; letter-spacing: 0.5px; transition: all 0.2s ease;
+        }
+        .btn-primary { background-color: #8ec5fc; color: #121212; margin-top: 10px; }
+        .btn-primary:hover { background-color: #b5deff; }
+        body.theme-light .btn-primary { background-color: #3b82f6; color: white; }
+        body.theme-light .btn-primary:hover { background-color: #2563eb; }
+        
+        .btn-danger {
+            background-color: transparent;
+            color: #ff2e63;
+            border: 1px solid #ff2e63;
+            margin-top: auto;
+            margin-bottom: 15px;
+            padding: 8px 14px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            width: auto;
+            align-self: center;
+            border-radius: 6px;
+        }
+        .btn-danger:hover { background-color: #ff2e63; color: white; }
+        body.theme-light .btn-danger { background-color: transparent; color: #ef4444; border: 1px solid #fca5a5; }
+        body.theme-light .btn-danger:hover { background-color: #ef4444; color: white; }
+        
+        .hidden { display: none !important; }
+
+        /* PEERCOACH CREDIT & DONATE LINK */
+        .donation-box {
+            border-top: 1px solid #2a2a2a;
+            padding-top: 20px;
+            margin-top: 0;
+            text-align: center;
+        }
+        body.theme-light .donation-box { border-top-color: #e2e8f0; }
+        
+        .donation-box p {
+            margin: 0 0 10px 0;
+            font-size: 0.8rem;
+            color: #888;
+            letter-spacing: 0.5px;
+        }
+        .btn-donate {
+            display: block;
+            background: linear-gradient(135deg, #2c2c2c, #1a1a1a);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #ffffff;
+            text-decoration: none;
+            text-align: center;
+            padding: 12px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+        .btn-donate:hover {
+            background: linear-gradient(135deg, #3c3c3c, #2a2a2a);
+            border-color: #8ec5fc;
+            box-shadow: 0 4px 20px rgba(142, 197, 252, 0.15);
+        }
+        body.theme-light .btn-donate {
+            background: linear-gradient(135deg, #ffffff, #f8fafc);
+            border: 1px solid #e2e8f0;
+            color: #333333;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.04);
+        }
+        body.theme-light .btn-donate:hover {
+            background: linear-gradient(135deg, #f1f5f9, #e2e8f0);
+            border-color: #3b82f6;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.1);
+        }
+        
+        .btn-donate span {
+            color: #ff2e63;
+            margin-left: 4px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="menu-icon" id="menuBtn" onclick="toggleDrawer(true)">☰</div>
+
+<div class="drawer-overlay" id="drawerOverlay" onclick="toggleDrawer(false)"></div>
+
+<div class="drawer" id="sideDrawer">
+    <div class="drawer-content">
+        <span class="drawer-close" onclick="toggleDrawer(false)">✕</span>
+        <h3>Settings</h3>
+        
+        <div class="input-group">
+            <label>Select Theme Background</label>
+            <select id="bgSelect" onchange="changeBackground(this.value)">
+                <option value="dark">Minimalist Dark</option>
+                <option value="light">Minimalist Light</option>
+                <option value="image1">Field of Daisies</option>
+                <option value="image2">Beach Shoreline</option>
+                <option value="image3">Snowy Stream</option>
+                <option value="image4">Desert Brook</option>
+                <option value="image5">Mountain Forest</option>
+                <option value="image6">Beach Palm Tree</option>
+            </select>
+            <div style="margin-top: 16px; background: rgba(128,128,128,0.08); padding: 12px; border-radius: 8px; border: 1px dashed rgba(128,128,128,0.3);">
+                <label style="font-size: 0.7rem; margin-bottom: 6px;">Use Custom Local Photo</label>
+                <input type="file" id="customBgInput" accept="image/*" style="font-size: 0.8rem; color: #888; width: 100%;">
+            </div>
+        </div>
+
+        <!-- System Reset Button sits structurally at the base of options, immediately preceding the footer link -->
+        <button class="btn-danger" id="resetBtn">Reset Start Date</button>
+    </div>
+
+    <!-- PEERCOACH CREDIT & DONATE SECTION -->
+    <div class="donation-box">
+        <p>Created by PeerCoach.org</p>
+        <a href="https://peercoach.org/app-donate.html" class="btn-donate" target="_blank">
+            Support Our Mission <span>❤️</span>
+        </a>
+    </div>
+</div>
+
+<div class="container">
+    <div id="setupView">
+        <h2>Set Sobriety Date</h2>
+        <div class="input-group" style="background: rgba(0,0,0,0.3); backdrop-filter: blur(8px); padding: 16px; border-radius: 12px; margin-bottom: 1.5rem; border: 1px solid rgba(255,255,255,0.15);">
+            <label for="sobrietyDateTime">Choose Date & Time</label>
+            <input type="datetime-local" id="sobrietyDateTime">
+        </div>
+        <button class="btn-primary" id="saveBtn">START TRACKING</button>
+    </div>
+
+    <div id="counterView" class="hidden">
+        <h2>My Sobriety</h2>
+        
+        <div class="interactive-counter" id="counterClickZone">
+            <div class="counter-grid" id="displayModeStandard">
+                <div class="counter-box long-span">
+                    <div class="time-value" id="val-years">0</div>
+                    <div class="time-label">Years</div>
+                </div>
+                <div class="counter-box">
+                    <div class="time-value" id="val-months">0</div>
+                    <div class="time-label">Months</div>
+                </div>
+                <div class="counter-box">
+                    <div class="time-value" id="val-days">0</div>
+                    <div class="time-label">Days</div>
+                </div>
+                <div class="counter-box">
+                    <div class="time-value" id="val-hours">0</div>
+                    <div class="time-label">Hours</div>
+                </div>
+                <div class="counter-box">
+                    <div class="time-value" id="val-minutes">0</div>
+                    <div class="time-label">Minutes</div>
+                </div>
+            </div>
+
+            <div class="single-display-box hidden" id="displayModeSingle">
+                <div class="time-value" id="singleValue">0</div>
+                <div class="time-label" id="singleLabel">Days</div>
+            </div>
+
+            <div class="view-hint" id="viewHint">Tap counter to shift views</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let savedDate = localStorage.getItem('sobrietyDate');
+    let currentMode = parseInt(localStorage.getItem('displayMode') || '0'); 
+    let intervalId = null;
+
+    const themes = {
+        dark: '#121212',
+        light: '#f5f6f8',
+        image1: 'url("https://peercoach.org/images/st/image1.jpg")',
+        image2: 'url("https://peercoach.org/images/st/image2.jpg")',
+        image3: 'url("https://peercoach.org/images/st/image3.jpg")',
+        image4: 'url("https://peercoach.org/images/st/image4.jpg")',
+        image5: 'url("https://peercoach.org/images/st/image5.jpg")',
+        image6: 'url("https://peercoach.org/images/st/image6.jpg")'
+    };
+
+    const setupView = document.getElementById('setupView');
+    const counterView = document.getElementById('counterView');
+    const menuBtn = document.getElementById('menuBtn');
+    const sideDrawer = document.getElementById('sideDrawer');
+    const drawerOverlay = document.getElementById('drawerOverlay');
+    const counterClickZone = document.getElementById('counterClickZone');
+    
+    const sobrietyDateTimeInput = document.getElementById('sobrietyDateTime');
+    const saveBtn = document.getElementById('saveBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const bgSelect = document.getElementById('bgSelect');
+    const customBgInput = document.getElementById('customBgInput');
+
+    const modeStandard = document.getElementById('displayModeStandard');
+    const modeSingle = document.getElementById('displayModeSingle');
+    const singleValue = document.getElementById('singleValue');
+    const singleLabel = document.getElementById('singleLabel');
+
+    const now = new Date();
+    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+    sobrietyDateTimeInput.value = now.toISOString().slice(0, 16);
+
+    function init() {
+        const savedBg = localStorage.getItem('sobrietyBg') || 'dark';
+        if (savedBg.startsWith('data:image')) {
+            document.body.classList.remove('theme-light');
+            document.body.classList.add('has-bg-image');
+            document.body.style.backgroundImage = `url("${savedBg}")`;
+        } else {
+            bgSelect.value = savedBg;
+            changeBackground(savedBg, false);
+        }
+
+        if (savedDate) {
+            setupView.classList.add('hidden');
+            counterView.classList.remove('hidden');
+            menuBtn.classList.remove('hidden');
+            startCounter();
+        } else {
+            setupView.classList.remove('hidden');
+            counterView.classList.add('hidden');
+            menuBtn.classList.add('hidden');
+            toggleDrawer(false);
+            if (intervalId) clearInterval(intervalId);
+        }
+    }
+
+    // Drawer state controls
+    function toggleDrawer(open) {
+        if (open) {
+            sideDrawer.classList.add('open');
+            drawerOverlay.classList.add('open');
+        } else {
+            sideDrawer.classList.remove('open');
+            drawerOverlay.classList.remove('open');
+        }
+    }
+
+    // Close drawer when clicking anywhere outside of the drawer
+    document.addEventListener('click', (e) => {
+        if (sideDrawer.classList.contains('open') && 
+            !sideDrawer.contains(e.target) && 
+            !menuBtn.contains(e.target)) {
+            toggleDrawer(false);
+        }
+    });
+
+    function changeBackground(themeKey, persist = true) {
+        if (themes[themeKey]) {
+            // Manage light/dark engine states
+            if (themeKey === 'light') {
+                document.body.classList.add('theme-light');
+                document.body.classList.remove('has-bg-image');
+                document.body.style.backgroundImage = 'none';
+            } else if (themeKey === 'dark') {
+                document.body.classList.remove('theme-light');
+                document.body.classList.remove('has-bg-image');
+                document.body.style.backgroundImage = 'none';
+                document.body.style.backgroundColor = themes.dark;
+            } else {
+                document.body.classList.remove('theme-light');
+                document.body.classList.add('has-bg-image');
+                document.body.style.backgroundImage = themes[themeKey];
+            }
+            if (persist) localStorage.setItem('sobrietyBg', themeKey);
+        }
+    }
+
+    customBgInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const base64Url = event.target.result;
+                document.body.classList.remove('theme-light');
+                document.body.classList.add('has-bg-image');
+                document.body.style.backgroundImage = `url("${base64Url}")`;
+                localStorage.setItem('sobrietyBg', base64Url);
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+
+    counterClickZone.addEventListener('click', () => {
+        currentMode = (currentMode + 1) % 4;
+        localStorage.setItem('displayMode', currentMode);
+        updateCounter();
+    });
+
+    function startCounter() {
+        updateCounter();
+        if (intervalId) clearInterval(intervalId);
+        intervalId = setInterval(updateCounter, 1000);
+    }
+
+    function updateCounter() {
+        if (!savedDate) return;
+        const startDate = new Date(savedDate);
+        const currentDate = new Date();
+        
+        let diffMs = currentDate - startDate;
+        if (diffMs < 0) diffMs = 0;
+
+        const totalSeconds = Math.floor(diffMs / 1000);
+        const totalMinutes = Math.floor(totalSeconds / 60);
+        const totalHours = Math.floor(totalMinutes / 60);
+        const totalDays = Math.floor(totalHours / 24);
+
+        if (currentMode === 0) {
+            modeStandard.classList.remove('hidden');
+            modeSingle.classList.add('hidden');
+
+            let years = currentDate.getFullYear() - startDate.getFullYear();
+            let months = currentDate.getMonth() - startDate.getMonth();
+            let days = currentDate.getDate() - startDate.getDate();
+
+            if (days < 0) {
+                const prevMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 0);
+                days += prevMonth.getDate();
+                months--;
+            }
+            if (months < 0) {
+                months += 12;
+                years--;
+            }
+
+            document.getElementById('val-years').textContent = years;
+            document.getElementById('val-months').textContent = months;
+            document.getElementById('val-days').textContent = days;
+            document.getElementById('val-hours').textContent = totalHours % 24;
+            document.getElementById('val-minutes').textContent = totalMinutes % 60;
+        } else {
+            modeStandard.classList.add('hidden');
+            modeSingle.classList.remove('hidden');
+
+            if (currentMode === 1) {
+                singleValue.textContent = totalDays.toLocaleString();
+                singleLabel.textContent = "Total Days";
+            } else if (currentMode === 2) {
+                singleValue.textContent = totalHours.toLocaleString();
+                singleLabel.textContent = "Total Hours";
+            } else if (currentMode === 3) {
+                singleValue.textContent = totalSeconds.toLocaleString();
+                singleLabel.textContent = "Total Seconds";
+            }
+        }
+    }
+
+    saveBtn.addEventListener('click', () => {
+        const val = sobrietyDateTimeInput.value;
+        if (!val) return;
+        localStorage.setItem('sobrietyDate', val);
+        savedDate = val;
+        init();
+    });
+
+    resetBtn.addEventListener('click', () => {
+        if (confirm("Are you entirely sure you want to change or reset your milestones?")) {
+            localStorage.removeItem('sobrietyDate');
+            savedDate = null;
+            init();
+        }
+    });
+
+    init();
+</script>
+
+</body>
+</html>

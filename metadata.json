@@ -1,0 +1,6 @@
+{
+  "name": "Sobriety Tracker",
+  "description": "A clean glassmorphism sobriety counter and tracking web app to calculate milestones and days sober.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
