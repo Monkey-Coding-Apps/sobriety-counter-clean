@@ -9,25 +9,33 @@ const __dirname = path.dirname(__filename);
 const PORT = 3000;
 
 const MIME_TYPES = {
-  '.html': 'text/html; charset=UTF-8',
-  '.js': 'text/javascript; charset=UTF-8',
-  '.css': 'text/css; charset=UTF-8',
-  '.json': 'application/json',
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'application/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
   '.png': 'image/png',
-  '.jpg': 'image/jpg',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
   '.gif': 'image/gif',
   '.svg': 'image/svg+xml',
   '.ico': 'image/x-icon',
-  '.apk': 'application/vnd.android.package-archive',
+  '.woff': 'font/woff',
+  '.woff2': 'font/woff2',
+  '.ttf': 'font/ttf'
 };
 
 const server = http.createServer((req, res) => {
   let reqUrl = req.url.split('?')[0];
-  let filePath = path.join(__dirname, reqUrl === '/' ? 'index.html' : reqUrl);
+  if (reqUrl === '/') {
+    reqUrl = '/index.html';
+  }
+
+  let filePath = path.join(__dirname, reqUrl);
 
   if (!filePath.startsWith(__dirname)) {
     res.writeHead(403);
-    return res.end('Forbidden');
+    res.end('Forbidden');
+    return;
   }
 
   fs.stat(filePath, (err, stats) => {
@@ -38,22 +46,18 @@ const server = http.createServer((req, res) => {
     const ext = path.extname(filePath).toLowerCase();
     const contentType = MIME_TYPES[ext] || 'application/octet-stream';
 
-    fs.readFile(filePath, (error, content) => {
-      if (error) {
+    fs.readFile(filePath, (readErr, content) => {
+      if (readErr) {
         res.writeHead(500);
-        res.end(`Server Error: ${error.code}`);
-      } else {
-        res.writeHead(200, {
-          'Content-Type': contentType,
-          'Cache-Control': 'no-cache',
-        });
-        res.end(content);
+        res.end('Server Error');
+        return;
       }
+      res.writeHead(200, { 'Content-Type': contentType, 'Cache-Control': 'no-cache' });
+      res.end(content);
     });
   });
 });
 
 server.listen(PORT, '0.0.0.0', () => {
-  console.log(`Sobriety Tracker server running at http://0.0.0.0:${PORT}/`);
+  console.log(`Server running on http://0.0.0.0:${PORT}`);
 });
-
